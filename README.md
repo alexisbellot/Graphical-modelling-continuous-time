@@ -1,4 +1,4 @@
-# Graphical modelling in continuous-time:
+# Graphical modelling in continuous-time
 
 This is a python implementation of algorithms and experiments presented in the paper [*"Graphical modelling in continuous-time: consistency guarantees and algorithms using Neural ODEs"*](https://arxiv.org/abs/2105.02522). 
 
