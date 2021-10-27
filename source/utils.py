@@ -1,25 +1,30 @@
 import numpy as np
 from scipy.special import expit as sigmoid
-import igraph as ig
+#import igraph as ig
 import random
 from scipy.interpolate import UnivariateSpline
 from scipy.integrate import odeint
 from collections import defaultdict
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score
 import time
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
 import math
+import sdeint
+
 
 def plot_trajectories(data, pred, graph, title=[1,2.1]):
     fig, axs = plt.subplots(1,3, figsize=(10, 2.3))
     fig.tight_layout(pad=0.2, w_pad=2, h_pad=3)
     axs[0].plot(data.squeeze())
     axs[1].plot(pred.squeeze())
+    i=1
     axs[1].set_title("Iteration = %i" % title[0] + ",  " +  "Loss = %1.3f" % title[1])
     cax = axs[2].matshow(graph)
     fig.colorbar(cax)
     plt.show()
+    #plt.savefig('../Giff/fig'+i+'.png')
     
 def compute_derivatives(y,k=4,s=4,t=None):
     """Compute derivatives of univariate stochastic process by interpolating trajectory with
@@ -106,7 +111,8 @@ def simulate_var(p, T, lag, sparsity=0.2, beta_value=1.0, sd=0.1, seed=0):
     return X.T[burn_in:], beta, GC
 
 
-def lorenz(x, t, F):
+
+def lorenz(x, t, F=5):
     '''Partial derivatives for Lorenz-96 ODE.'''
     p = len(x)
     dxdt = np.zeros(p)
@@ -116,16 +122,22 @@ def lorenz(x, t, F):
     return dxdt
 
 
-def simulate_lorenz_96(p, T, F=10.0, delta_t=0.1, sd=0.1, burn_in=1000,
+def simulate_lorenz_96(p, T, sigma=0.5, F=10.0, delta_t=0.1, sd=0.1, burn_in=1000,
                        seed=None):
     if seed is not None:
         np.random.seed(seed)
 
+    def GG(x, t):
+        p = len(x)
+        return np.diag([sigma]*p)
+
     # Use scipy to solve ODE.
     x0 = np.random.normal(scale=0.01, size=p)
     t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
-    X = odeint(lorenz, x0, t, args=(F,))
-    X += np.random.normal(scale=sd, size=(T + burn_in, p))
+    #X = odeint(lorenz, x0, t, args=(F,))
+    #X += np.random.normal(scale=sd, size=(T + burn_in, p))
+    
+    X = sdeint.itoint(lorenz, GG, x0, t)
 
     # Set up Granger causality ground truth.
     GC = np.zeros((p, p), dtype=int)
@@ -167,7 +179,7 @@ def simulate_lotkavolterra(p, T, r, alpha, delta_t=0.1, sd=0.01, burn_in=1000,
 
     return X[burn_in:], GC
 
-def rossler(x, t, a,eps,b,d):
+def rossler(x, t, a=0,eps=0.1,b=4,d=2):
     '''Partial derivatives for rossler ODE.'''
     p = len(x)
     dxdt = np.zeros(p)
@@ -180,17 +192,23 @@ def rossler(x, t, a,eps,b,d):
         
     return dxdt
 
-def simulate_rossler(p, T, a=0, eps=0.1,b=4,d=2, delta_t=0.05, sd=0.1, burn_in=1000,
+def simulate_rossler(p, T, sigma=0.5, a=0, eps=0.1,b=4,d=2, delta_t=0.05, sd=0.1, burn_in=1000,
                        seed=None):
     if seed is not None:
         np.random.seed(seed)
-
+        
+    def GG(x, t):
+        p = len(x)
+        return np.diag([sigma]*p)
+    
     # Use scipy to solve ODE.
     x0 = np.random.normal(scale=0.01, size=p)
     t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
-    X = odeint(rossler, x0, t, args=(a,eps,b,d,))
-    X += np.random.normal(scale=sd, size=(T + burn_in, p))
+    #X = odeint(rossler, x0, t, args=(a,eps,b,d,))
+    #X += np.random.normal(scale=sd, size=(T + burn_in, p))
 
+    X = sdeint.itoint(rossler, GG, x0, t)
+    
     # Set up Granger causality ground truth.
     GC = np.zeros((p, p), dtype=int)
     GC[0,0]=1; GC[0,1]=1
@@ -270,10 +288,14 @@ def glycolytic(x,t,k1=0.52, K1=100, K2=6, K3=16, K4=100, K5=1.28, K6=12, K=1.8,
 
     return dxdt
 
-def simulate_glycolytic(T, delta_t=0.001, sd=0.01, burn_in=0,seed=None, scale=True):
+def simulate_glycolytic(T, sigma = 0.5, delta_t=0.001, sd=0.01, burn_in=0,seed=None, scale=True):
     if seed is not None:
         np.random.seed(seed)
 
+    def GG(x, t):
+        p = len(x)
+        return np.diag([sigma]*p)
+    
     x0 = np.zeros(7)
     x0[0] = np.random.uniform(0.15, 1.6)
     x0[1] = np.random.uniform(0.19, 2.16)
@@ -285,9 +307,11 @@ def simulate_glycolytic(T, delta_t=0.001, sd=0.01, burn_in=0,seed=None, scale=Tr
     
     # Use scipy to solve ODE.
     t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
-    X = odeint(glycolytic, x0, t)
-    X += np.random.normal(scale=sd, size=(T + burn_in, 7))
-
+    #X = odeint(glycolytic, x0, t)
+    #X += np.random.normal(scale=sd, size=(T + burn_in, 7))
+    
+    X = sdeint.itoint(glycolytic, GG, x0, t)
+    
     # Set up ground truth.
     GC = np.zeros((7, 7), dtype=int)
     GC[0,:] = np.array([1,0,0,0,0,1,0])
@@ -413,7 +437,9 @@ def compare_graphs(true_graph, estimated_graph):
         
     shd = structural_hamming_distance(true_graph, estimated_graph)
     
-    return tpr, fdr
+    AUC = roc_auc_score(true_graph.flatten(),estimated_graph.flatten())
+    
+    return tpr, fdr, AUC
 
 
 def performance(methods, model='rossler', num_exp=100, T = 100, p = 10, F=50):
