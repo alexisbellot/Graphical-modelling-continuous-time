@@ -134,10 +134,10 @@ def simulate_lorenz_96(p, T, sigma=0.5, F=10.0, delta_t=0.1, sd=0.1, burn_in=100
     # Use scipy to solve ODE.
     x0 = np.random.normal(scale=0.01, size=p)
     t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
-    #X = odeint(lorenz, x0, t, args=(F,))
-    #X += np.random.normal(scale=sd, size=(T + burn_in, p))
+    X = odeint(lorenz, x0, t, args=(F,))
+    X += np.random.normal(scale=sd, size=(T + burn_in, p))
     
-    X = sdeint.itoint(lorenz, GG, x0, t)
+    #X = sdeint.itoint(lorenz, GG, x0, t)
 
     # Set up Granger causality ground truth.
     GC = np.zeros((p, p), dtype=int)
@@ -146,36 +146,6 @@ def simulate_lorenz_96(p, T, sigma=0.5, F=10.0, delta_t=0.1, sd=0.1, burn_in=100
         GC[i, (i + 1) % p] = 1
         GC[i, (i - 1) % p] = 1
         GC[i, (i - 2) % p] = 1
-
-    return X[burn_in:], GC
-
-def lotkavolterra(x, t, r, alpha):
-    '''Partial derivatives for Lotka-Volterra ODE.
-    Args:
-    - r (np.array): vector of self-interaction
-    - alpha (pxp np.array): matrix of interactions'''
-    p = len(x)
-    dxdt = np.zeros(p)
-    for i in range(p):
-        dxdt[i] = r[i]*x[i]*(1-np.dot(alpha[i],x))
-
-    return dxdt
-
-def simulate_lotkavolterra(p, T, r, alpha, delta_t=0.1, sd=0.01, burn_in=1000,
-                       seed=None):
-    if seed is not None:
-        np.random.seed(seed)
-
-    # Use scipy to solve ODE.
-    x0 = np.random.normal(scale=0.01, size=p) + 0.25
-    x0 = np.array([0.0222, 0.0014, 0.0013, 0.0008])
-    t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
-    X = odeint(lotkavolterra, x0, t, args=(r,alpha,))
-    X += np.random.normal(scale=sd, size=(T + burn_in, p))
-
-    # Set up Granger causality ground truth.
-    GC = (alpha != 0)*1
-    np.fill_diagonal(GC,1)
 
     return X[burn_in:], GC
 
@@ -221,50 +191,6 @@ def simulate_rossler(p, T, sigma=0.5, a=0, eps=0.1,b=4,d=2, delta_t=0.05, sd=0.1
         
     return 400 * X[burn_in:], GC
 
-def tumor_vaccine(x, t, c2, t1, a0=0.1946, a1=0.3, c1=100, c3=300, delta0= 0.00001, delta1= 0.00001, d=0.0007, f=0.62, r=0.01):
-    '''Partial derivatives for rossler ODE.'''
-        
-    dxdt = np.zeros(5)
-    
-    c0=1/369
-    dxdt[0] = a0*x[0]*(1 - c0*x[0]) - delta0*x[0]*x[2] / (1 + c1*x[1]) - delta0*x[0]*x[4]
-    dxdt[1] = a1*(x[0]**2) / (c2 + x[0]**2) - d*x[1]
-    dxdt[2] = f*x[2]*x[0] / (1 + c3*x[0]*x[1]) - r*x[2] - delta0*x[3]*x[2] - delta1*x[2]
-    dxdt[3] = r*x[2] - delta1*x[3]
-    
-    if math.isclose(t, t1, abs_tol=0.5):
-        dxdt[4] = 5000 - delta1*x[4]
-    else:
-        dxdt[4] = - delta1*x[4]
-    
-    
-    
-    return dxdt
-
-def simulate_tumor(T, c2=300, t1=3,delta_t=0.05, sd=0.1, burn_in=0,
-                       seed=None):
-    if seed is not None:
-        np.random.seed(seed)
-
-    # Use scipy to solve ODE.
-    x0 = np.zeros(5)
-    x0[0] = 3; x0[1] = 0; x0[2] = 100; x0[3] = 0; x0[4] = 0
-    t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
-    X = odeint(tumor_vaccine, x0, t, args=(c2, t1, ))
-    X += np.random.normal(scale=sd, size=(T + burn_in, 5))
-
-    # Set up Granger causality ground truth.
-    p=5
-    GC = np.zeros((p, p), dtype=int)
-    GC[0,0]=1; GC[0,1]=1
-    GC[p-2,p-3]=1
-    GC[p-1,p-1]=1; GC[p-1,p-2]=1
-    for i in range(1,p-2):
-        #GC[i, i] = 1
-        GC[i, (i + 1)] = 1
-        GC[i, (i - 1)] = 1
-        
-    return X[burn_in:], GC
 
 def glycolytic(x,t,k1=0.52, K1=100, K2=6, K3=16, K4=100, K5=1.28, K6=12, K=1.8, 
                kappa=13, phi=0.1, q=4, A=4, N=1, J0=2.5):
@@ -326,7 +252,85 @@ def simulate_glycolytic(T, sigma = 0.5, delta_t=0.001, sd=0.01, burn_in=0,seed=N
         X = np.transpose(np.array([(X[:,i] - X[:,i].min())/(X[:,i].max() - X[:,i].min()) for i in range(X.shape[1])]))
    
     return 10* X[burn_in:], GC
-                        
+
+
+#### OTHER
+
+def lotkavolterra(x, t, r, alpha):
+    '''Partial derivatives for Lotka-Volterra ODE.
+    Args:
+    - r (np.array): vector of self-interaction
+    - alpha (pxp np.array): matrix of interactions'''
+    p = len(x)
+    dxdt = np.zeros(p)
+    for i in range(p):
+        dxdt[i] = r[i]*x[i]*(1-np.dot(alpha[i],x))
+
+    return dxdt
+
+def simulate_lotkavolterra(p, T, r, alpha, delta_t=0.1, sd=0.01, burn_in=1000,
+                       seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Use scipy to solve ODE.
+    x0 = np.random.normal(scale=0.01, size=p) + 0.25
+    x0 = np.array([0.0222, 0.0014, 0.0013, 0.0008])
+    t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
+    X = odeint(lotkavolterra, x0, t, args=(r,alpha,))
+    X += np.random.normal(scale=sd, size=(T + burn_in, p))
+
+    # Set up Granger causality ground truth.
+    GC = (alpha != 0)*1
+    np.fill_diagonal(GC,1)
+
+    return X[burn_in:], GC
+
+def tumor_vaccine(x, t, c2, t1, a0=0.1946, a1=0.3, c1=100, c3=300, delta0= 0.00001, delta1= 0.00001, d=0.0007, f=0.62, r=0.01):
+    '''Partial derivatives for rossler ODE.'''
+        
+    dxdt = np.zeros(5)
+    
+    c0=1/369
+    dxdt[0] = a0*x[0]*(1 - c0*x[0]) - delta0*x[0]*x[2] / (1 + c1*x[1]) - delta0*x[0]*x[4]
+    dxdt[1] = a1*(x[0]**2) / (c2 + x[0]**2) - d*x[1]
+    dxdt[2] = f*x[2]*x[0] / (1 + c3*x[0]*x[1]) - r*x[2] - delta0*x[3]*x[2] - delta1*x[2]
+    dxdt[3] = r*x[2] - delta1*x[3]
+    
+    if math.isclose(t, t1, abs_tol=0.5):
+        dxdt[4] = 5000 - delta1*x[4]
+    else:
+        dxdt[4] = - delta1*x[4]
+    
+    
+    
+    return dxdt
+
+def simulate_tumor(T, c2=300, t1=3,delta_t=0.05, sd=0.1, burn_in=0,
+                       seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+
+    # Use scipy to solve ODE.
+    x0 = np.zeros(5)
+    x0[0] = 3; x0[1] = 0; x0[2] = 100; x0[3] = 0; x0[4] = 0
+    t = np.linspace(0, (T + burn_in) * delta_t, T + burn_in)
+    X = odeint(tumor_vaccine, x0, t, args=(c2, t1, ))
+    X += np.random.normal(scale=sd, size=(T + burn_in, 5))
+
+    # Set up Granger causality ground truth.
+    p=5
+    GC = np.zeros((p, p), dtype=int)
+    GC[0,0]=1; GC[0,1]=1
+    GC[p-2,p-3]=1
+    GC[p-1,p-1]=1; GC[p-1,p-2]=1
+    for i in range(1,p-2):
+        #GC[i, i] = 1
+        GC[i, (i + 1)] = 1
+        GC[i, (i - 1)] = 1
+        
+    return X[burn_in:], GC
+
 def cardiovascular(x,t,I_ext, Rmod, Ca=4, Cv=111, tau=20, k=0.1838, Pas=70):
     '''Partial derivatives for Glycolytic oscillator model.
     

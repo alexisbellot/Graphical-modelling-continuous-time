@@ -106,7 +106,7 @@ class MLPODEF(nn.Module):
             fc.reset_parameters()
             
             
-def train(func, data, n_steps, times = None, plot_freq=10, horizon=5, l1_reg=0, l2_reg=0):
+def train(func, data, n_steps, times = None, plot_freq=10, horizon=5, l1_reg=0, l2_reg=0, plot=True, irregular=False):
     '''Train Neural ODE
     
     func: nn.Module class
@@ -118,22 +118,23 @@ def train(func, data, n_steps, times = None, plot_freq=10, horizon=5, l1_reg=0, 
     l2_reg (float): L1 regularization strength'''
     
     batch_time = horizon
-    batch_size = 1
     data_size = data.shape[0]
     device = torch.device('cpu')
     
-    if times == None:
+    if not irregular:
         times = np.linspace(0, data.shape[0], data.shape[0])
         times_np = np.hstack([times[:, None]])
         times = torch.from_numpy(times_np[:, :, None])
-        batch_size = 20
 
-    def create_batch():
-        s = torch.from_numpy(np.random.choice(np.arange(data_size - batch_time, dtype=np.int64),  batch_size, replace=False))
+    def create_batch(batch_size):
+        s = torch.from_numpy(np.random.choice(np.arange(data_size - batch_time, dtype=np.int64),  batch_size, 
+                                              replace=False))
         batch_y0 = data[s]  # (M, D)
         batch_t = times[:batch_time].squeeze()  # (T)
-        #batch_t = times[s:s+batch_time].squeeze()
-        batch_y = torch.stack([data[s + i] for i in range( batch_time)], dim=0)  # (T, M, D)
+        if irregular:
+            #batch_t = torch.cat([times[time:time+batch_time, :, :] for time in s],1).squeeze()  
+            batch_t = times[s:s+batch_time].squeeze() - times[s].squeeze()  # (T)
+        batch_y = torch.stack([data[s + i] for i in range(batch_time)], dim=0)
         return batch_y0.to(device), batch_t.to(device), batch_y.to(device)
 
     def proximal(w, lam=0.1, eta=0.1):
@@ -145,15 +146,27 @@ def train(func, data, n_steps, times = None, plot_freq=10, horizon=5, l1_reg=0, 
         v = torch.nn.functional.normalize(wadj, dim=1)*alpha[:,None,:]
         w.data = v.view(-1,func.dims[0])
     
-    lr = 0.01
+    lr = 0.005
     optimizer = torch.optim.Adam(func.parameters(), lr=lr)
     
     for i in range(n_steps):
-            
-        obs0_, ts_, obs_ = create_batch()
-        z_ = odeint(func, obs0_, ts_)
-        loss = F.mse_loss(z_, obs_.detach())
                 
+        if irregular:
+            obs0_, ts_, obs_ = create_batch(batch_size = 1) 
+            z_ = odeint(func, obs0_, ts_)
+            loss = F.mse_loss(z_, obs_.detach())
+                
+            #loss = 0
+            #for _ in range(20):
+            #    obs0_, ts_, obs_ = create_batch(batch_size = 1) 
+            #    z_ = odeint(func, obs0_, ts_)
+            #    loss += F.mse_loss(z_, obs_.detach()) / 20
+                
+        else:    
+            obs0_, ts_, obs_ = create_batch(batch_size = 20)
+            z_ = odeint(func, obs0_, ts_)
+            loss = F.mse_loss(z_, obs_.detach())
+            
         if l2_reg != 0:
             loss = loss + l2_reg * func.l2_reg()
         if l1_reg != 0:
@@ -170,11 +183,22 @@ def train(func, data, n_steps, times = None, plot_freq=10, horizon=5, l1_reg=0, 
                 param_group['lr'] = lr*0.5
                 
         
-        if i % plot_freq == 0:
+        if plot and i % plot_freq == 0:
             z_p = odeint(func, data[0], times[:100].squeeze())
             z_p, loss_np = z_p.detach().numpy(), loss.detach().numpy()
             graph = func.causal_graph(w_threshold=0.)
-            utils.plot_trajectories(data[:100], z_p, graph, title=[i,loss_np])
+            
+            fig, axs = plt.subplots(1,3, figsize=(10, 2.3))
+            fig.tight_layout(pad=0.2, w_pad=2, h_pad=3)
+            axs[0].plot(times[:100].squeeze(),data[:100].squeeze())
+            axs[1].plot(z_p.squeeze())
+            axs[1].set_title("Iteration = %i" % i + ",  " +  "Loss = %1.3f" % loss_np)
+            cax = axs[2].matshow(graph)
+            fig.colorbar(cax)
+            plt.show()
+            #plt.savefig('./Giff/fig%i.png' % i, bbox_inches = "tight")
+    
+            #utils.plot_trajectories(data[:100], z_p, graph, title=[i,loss_np])
             clear_output(wait=True)
 
             
