@@ -1,12 +1,10 @@
-from source.locally_connected import LocallyConnected
-import source.utils as utils
+from locally_connected import LocallyConnected
+from lbfgsb_scipy import LBFGSBScipy
 import numpy as np
-import math
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
 
 import torch
-from torch import Tensor
 from torch import nn
 from torch.nn import functional as F 
 from torchdiffeq import odeint_adjoint as odeint

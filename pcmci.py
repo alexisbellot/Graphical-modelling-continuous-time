@@ -1,7 +1,7 @@
 import numpy as np
-from source.tigramite.pcmci import PCMCI
-from source.tigramite.independence_tests import ParCorr
-import source.tigramite.data_processing as pp
+from tigramite.pcmci import PCMCI
+from tigramite.independence_tests import ParCorr
+import tigramite.data_processing as pp
 
 def pcmci(data):
     dataframe = pp.DataFrame(data)

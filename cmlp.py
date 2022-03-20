@@ -1,7 +1,8 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from copy import deepcopy
-from models.model_helper import activation_helper
+from model_helper import activation_helper
 
 
 class MLP(nn.Module):

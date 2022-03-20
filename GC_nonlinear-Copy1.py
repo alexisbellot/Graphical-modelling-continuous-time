@@ -1,9 +1,8 @@
-from source.locally_connected import LocallyConnected
-from source.lbfgsb_scipy import LBFGSBScipy
+from locally_connected import LocallyConnected
+from lbfgsb_scipy import LBFGSBScipy
 import torch
 import torch.nn as nn
 import numpy as np
-import math
 from scipy.interpolate import UnivariateSpline
 
 class NotearsMLP(nn.Module):

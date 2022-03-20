@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.special import expit as sigmoid
 #import igraph as ig
 import random
 from scipy.interpolate import UnivariateSpline
@@ -9,7 +8,6 @@ from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 import time
 import matplotlib.pyplot as plt
-from IPython.display import clear_output
 import math
 import sdeint
 
