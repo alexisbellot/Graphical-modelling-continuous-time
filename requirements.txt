@@ -1,13 +1,13 @@
-ipython==8.1.1
+ipython~=8.1.1
 lingam~=1.5.5
-matplotlib==3.4.3
-networkx==2.6.3
-numpy==1.21.2
-rpy2==3.4.5  # NOTE: R (https://www.r-project.org/) must be installed on the system for rpy2 to work.
-scikit-learn==1.0.2
-scipy==1.7.1
-sdeint==0.2.2
-six==1.16.0
-torch==1.9.1  # To utilise GPU, CUDA Toolkit must be installed.
-torchdiffeq==0.2.2
-tqdm==4.62.3
+matplotlib~=3.4.3
+networkx~=2.6.3
+numpy~=1.21.2
+rpy2~=3.4.5  # NOTE: R (https://www.r-project.org/) must be installed on the system for rpy2 to work.
+scikit-learn~=1.0.2
+scipy~=1.7.1
+sdeint~=0.2.2
+six~=1.16.0
+torch~=1.9.1  # To utilise GPU, CUDA Toolkit must be installed.
+torchdiffeq~=0.2.2
+tqdm~=4.62.3
