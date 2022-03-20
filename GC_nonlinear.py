@@ -1,12 +1,16 @@
-from locally_connected import LocallyConnected
-from lbfgsb_scipy import LBFGSBScipy
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 from scipy.interpolate import UnivariateSpline
 
+from lbfgsb_scipy import LBFGSBScipy
+from locally_connected import LocallyConnected
+
+
 class NotearsMLP(nn.Module):
-    def __init__(self, dims, bias=True, penalty = "L1", GL_penalty = None): # dims: [number of variables, dimension hidden layers, output dim=1]
+    def __init__(
+        self, dims, bias=True, penalty="L1", GL_penalty=None
+    ):  # dims: [number of variables, dimension hidden layers, output dim=1]
         super(NotearsMLP, self).__init__()
         assert len(dims) >= 2
         assert dims[-1] == 1
@@ -48,29 +52,29 @@ class NotearsMLP(nn.Module):
 
     def l2_reg(self):
         """Take 2-norm-squared of all parameters"""
-        reg = 0.
+        reg = 0.0
         fc1_weight = self.fc1_pos.weight - self.fc1_neg.weight  # [j * m1, i], i = number of hidden nodes
         # fc1_weight = self.fc1.weight
-        reg += torch.sum(fc1_weight ** 2)
+        reg += torch.sum(fc1_weight**2)
         for fc in self.fc2:
-            reg += torch.sum(fc.weight ** 2)
+            reg += torch.sum(fc.weight**2)
         return reg
 
     def fc1_reg(self):
         """Take norm of fc1 weight"""
         if self.penalty == "L1":
             return torch.sum(self.fc1_pos.weight + self.fc1_neg.weight)
-        elif self.penalty == 'GL':
+        elif self.penalty == "GL":
             fc1_weight = self.fc1_pos.weight - self.fc1_neg.weight  # [j * m1, i]
             # fc1_weight = self.fc1.weight
             self.fc1_recorded = torch.norm(fc1_weight, dim=1)
-            return torch.sum(torch.norm(fc1_weight, dim=1)) # [j * m1]
-        elif self.penalty == 'GL+AGL':
+            return torch.sum(torch.norm(fc1_weight, dim=1))  # [j * m1]
+        elif self.penalty == "GL+AGL":
             gamma = 0.5
             fc1_weight = self.fc1_pos.weight - self.fc1_neg.weight  # [j * m1, i]
             # fc1_weight = self.fc1.weight
-            return torch.sum(torch.norm(fc1_weight, dim=1) / (self.GL_penalty.pow(gamma))) # [j * m1]
-    
+            return torch.sum(torch.norm(fc1_weight, dim=1) / (self.GL_penalty.pow(gamma)))  # [j * m1]
+
     @torch.no_grad()
     def fc1_to_adj(self) -> np.ndarray:  # [j * m1, i] -> [i, j]
         """Get W from fc1 weights, take 2-norm over m1 dim"""
@@ -82,8 +86,8 @@ class NotearsMLP(nn.Module):
         W = torch.sqrt(A)  # [i, j]
         W = W.cpu().detach().numpy()  # [i, j]
         return W
-    
-    # NOTE: Unused.    
+
+    # NOTE: Unused.
     # def proximal(self, lam, eta=1e-2):
     #     """In place proximal update on first layer weight matrix"""
     #     fc1_weight = self.fc1.weight
@@ -91,7 +95,6 @@ class NotearsMLP(nn.Module):
     #     alpha = torch.clamp(tmp, min=0)
     #     v = torch.nn.functional.normalize(fc1_weight, dim=1)*alpha[:,None]
     #     self.fc1.weight.data = v
-
 
 
 def squared_loss(output, target):
@@ -104,6 +107,7 @@ def optimize(model, X, Y, lambda1, lambda2):
     optimizer = LBFGSBScipy(model.parameters())
     X_torch = torch.from_numpy(X)
     Y_torch = torch.from_numpy(Y)
+
     def closure():
         optimizer.zero_grad()
         Y_hat = model(X_torch)
@@ -113,53 +117,51 @@ def optimize(model, X, Y, lambda1, lambda2):
         primal_obj = loss + l2_reg + l1_reg
         primal_obj.backward()
         return primal_obj
-    #proximal(lam=0.5)
+
+    # proximal(lam=0.5)
     optimizer.step(closure)
-    
-def notears_nonlinear(model: nn.Module,
-                      X: np.ndarray,
-                      Y: np.ndarray,
-                      lambda1: float = 0.,
-                      lambda2: float = 0.,
-                      w_threshold: float = 0.3):
-    optimize(model,X,Y,lambda1,lambda2)
+
+
+def notears_nonlinear(
+    model: nn.Module, X: np.ndarray, Y: np.ndarray, lambda1: float = 0.0, lambda2: float = 0.0, w_threshold: float = 0.3
+):
+    optimize(model, X, Y, lambda1, lambda2)
     W_est = model.fc1_to_adj()
     W_est[np.abs(W_est) < w_threshold] = 0
     return np.transpose(W_est)
 
 
-def compute_derivatives(y,k=4,s=4,t=None):
+def compute_derivatives(y, k=4, s=4, t=None):
     """Compute derivatives of univariate stochastic process by interpolating trajectory with
     univariate splines.
 
     Args:
-        t, y (np.ndarray): time indeces t of time series y 
-        
+        t, y (np.ndarray): time indeces t of time series y
+
     Returns:
         dy/dt (np.ndarray): derivative of y(t) evaluated at t
     """
     if type(t) == type(None):
         t = np.arange(y.shape[0])
-    
+
     temp_list = []
     for i in range(y.shape[1]):
-        spl = UnivariateSpline(t, y[:,i], k=k, s=s)#s=0)
+        spl = UnivariateSpline(t, y[:, i], k=k, s=s)  # s=0)
         derspl = spl.derivative()
         temp_list.append(derspl(t))
-        
+
     return np.transpose(np.array(temp_list))
 
 
-def nonlinear(data, s=0.01, lambda1=0.0001, lambda2=0.01, w_threshold = 0.15):
-    
+def nonlinear(data, s=0.01, lambda1=0.0001, lambda2=0.01, w_threshold=0.15):
+
     # Rossler: lambda1=0.0001, lambda2=0.01, w_threshold = 0.15
     # Lorenz: lambda1=0.006, lambda2=0.01, w_threshold = 0.2
-    Y = compute_derivatives(data,k=4,s=s)
+    Y = compute_derivatives(data, k=4, s=s)
     torch.set_default_dtype(torch.double)
     np.set_printoptions(precision=3)
 
     d = data.shape[1]
     model = NotearsMLP(dims=[d, 10, 1], bias=True)
-    W_est = notears_nonlinear(model, data, Y, lambda1=lambda1, lambda2=lambda2, w_threshold = w_threshold)
+    W_est = notears_nonlinear(model, data, Y, lambda1=lambda1, lambda2=lambda2, w_threshold=w_threshold)
     return W_est
-

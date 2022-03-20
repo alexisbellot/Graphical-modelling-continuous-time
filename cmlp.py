@@ -1,7 +1,9 @@
+from copy import deepcopy
+
 import numpy as np
 import torch
 import torch.nn as nn
-from copy import deepcopy
+
 from model_helper import activation_helper
 
 
@@ -32,23 +34,22 @@ class MLP(nn.Module):
 
 
 class cMLP(nn.Module):
-    def __init__(self, num_series, lag, hidden, activation='relu'):
-        '''cMLP model.
+    def __init__(self, num_series, lag, hidden, activation="relu"):
+        """cMLP model.
 
         Args:
           num_series: dimensionality of multivariate time series.
           lag: number of previous time points to use in prediction.
           hidden: list of number of hidden units per layer.
           activation: nonlinearity at each layer.
-        '''
+        """
         super(cMLP, self).__init__()
         self.p = num_series
         self.lag = lag
         self.activation = activation_helper(activation)
 
         # Set up networks.
-        self.networks = [MLP(num_series, lag, hidden, activation)
-                         for _ in range(num_series)]
+        self.networks = [MLP(num_series, lag, hidden, activation) for _ in range(num_series)]
 
         # Register parameters.
         param_list = []
@@ -57,7 +58,7 @@ class cMLP(nn.Module):
         self.param_list = nn.ParameterList(param_list)
 
     def forward(self, X, i=None):
-        '''Perform forward pass.
+        """Perform forward pass.
 
         Args:
           X: torch tensor of shape (batch, T, p).
@@ -65,14 +66,14 @@ class cMLP(nn.Module):
 
         Returns:
           predictions from one MLP or all MLPs.
-        '''
+        """
         if i is None:
             return torch.cat([network(X) for network in self.networks], dim=2)
         else:
             return self.networks[i](X)[:, :, 0]
 
     def GC(self, threshold=True, ignore_lag=True):
-        '''Extract learned Granger causality.
+        """Extract learned Granger causality.
 
         Args:
           threshold: return norm of weights, or whether norm is nonzero.
@@ -83,13 +84,11 @@ class cMLP(nn.Module):
             indicates whether variable j is Granger causal of variable i. In
             second case, entry (i, j, k) indicates whether it's Granger causal
             at lag k.
-        '''
+        """
         if ignore_lag:
-            GC = [torch.norm(net.layers[0].weight, dim=(0, 2))
-                  for net in self.networks]
+            GC = [torch.norm(net.layers[0].weight, dim=(0, 2)) for net in self.networks]
         else:
-            GC = [torch.norm(net.layers[0].weight, dim=0)
-                  for net in self.networks]
+            GC = [torch.norm(net.layers[0].weight, dim=0) for net in self.networks]
         GC = torch.stack(GC)
         if threshold:
             return (GC > 0).int()
@@ -98,8 +97,8 @@ class cMLP(nn.Module):
 
 
 class cMLPSparse(nn.Module):
-    def __init__(self, num_series, sparsity, lag, hidden, activation='relu'):
-        '''cMLP model that only uses specified interactions.
+    def __init__(self, num_series, sparsity, lag, hidden, activation="relu"):
+        """cMLP model that only uses specified interactions.
 
         Args:
           num_series: dimensionality of multivariate time series.
@@ -108,7 +107,7 @@ class cMLPSparse(nn.Module):
           lag: number of previous time points to use in prediction.
           hidden: list of number of hidden units per layer.
           activation: nonlinearity at each layer.
-        '''
+        """
         super(cMLPSparse, self).__init__()
         self.p = num_series
         self.lag = lag
@@ -128,7 +127,7 @@ class cMLPSparse(nn.Module):
         self.param_list = nn.ParameterList(param_list)
 
     def forward(self, X, i=None):
-        '''Perform forward pass.
+        """Perform forward pass.
 
         Args:
           X: torch tensor of shape (batch, T, p).
@@ -136,17 +135,16 @@ class cMLPSparse(nn.Module):
 
         Returns:
           predictions from one MLP or all MLPs.
-        '''
+        """
         if i is None:
-            return torch.cat([self.networks[i](X[:, :, self.sparsity[i]])
-                              for i in range(self.p)], dim=2)
+            return torch.cat([self.networks[i](X[:, :, self.sparsity[i]]) for i in range(self.p)], dim=2)
         else:
             X_subset = X[:, :, self.sparsity[i]]
             return self.networks[i](X_subset)[:, :, 0]
 
 
 def prox_update(network, lam, lr, penalty):
-    '''Perform in place proximal update on first layer weight matrix.
+    """Perform in place proximal update on first layer weight matrix.
 
     Args:
       network: MLP network.
@@ -154,63 +152,72 @@ def prox_update(network, lam, lr, penalty):
       lr: learning rate.
       penalty: one of GL (group lasso), GSGL (group sparse group lasso),
         H (hierarchical).
-    '''
+    """
     W = network.layers[0].weight
     hidden, p, lag = W.shape
-    if penalty == 'GL':
+    if penalty == "GL":
         norm = torch.norm(W, dim=(0, 2), keepdim=True)
-        W.data = ((W / torch.clamp(norm, min=(lr * lam * 0.1)))
-                  * torch.clamp(norm - (lr * lam), min=0.0))
-    elif penalty == 'GSGL':
+        W.data = (W / torch.clamp(norm, min=(lr * lam * 0.1))) * torch.clamp(norm - (lr * lam), min=0.0)
+    elif penalty == "GSGL":
         norm = torch.norm(W, dim=0, keepdim=True)
-        W.data = ((W / torch.clamp(norm, min=(lr * lam * 0.1)))
-                  * torch.clamp(norm - (lr * lam), min=0.0))
+        W.data = (W / torch.clamp(norm, min=(lr * lam * 0.1))) * torch.clamp(norm - (lr * lam), min=0.0)
         norm = torch.norm(W, dim=(0, 2), keepdim=True)
-        W.data = ((W / torch.clamp(norm, min=(lr * lam * 0.1)))
-                  * torch.clamp(norm - (lr * lam), min=0.0))
-    elif penalty == 'H':
+        W.data = (W / torch.clamp(norm, min=(lr * lam * 0.1))) * torch.clamp(norm - (lr * lam), min=0.0)
+    elif penalty == "H":
         # Lowest indices along third axis touch most lagged values.
         for i in range(lag):
-            norm = torch.norm(W[:, :, :(i + 1)], dim=(0, 2), keepdim=True)
-            W.data[:, :, :(i+1)] = (
-                (W.data[:, :, :(i+1)] / torch.clamp(norm, min=(lr * lam * 0.1)))
-                * torch.clamp(norm - (lr * lam), min=0.0))
+            norm = torch.norm(W[:, :, : (i + 1)], dim=(0, 2), keepdim=True)
+            W.data[:, :, : (i + 1)] = (W.data[:, :, : (i + 1)] / torch.clamp(norm, min=(lr * lam * 0.1))) * torch.clamp(
+                norm - (lr * lam), min=0.0
+            )
     else:
-        raise ValueError('unsupported penalty: %s' % penalty)
+        raise ValueError("unsupported penalty: %s" % penalty)
 
 
 def regularize(network, lam, penalty):
-    '''Calculate regularization term for first layer weight matrix.
+    """Calculate regularization term for first layer weight matrix.
 
     Args:
       network: MLP network.
       penalty: one of GL (group lasso), GSGL (group sparse group lasso),
         H (hierarchical).
-    '''
+    """
     W = network.layers[0].weight
     hidden, p, lag = W.shape
-    if penalty == 'GL':
+    if penalty == "GL":
         return lam * torch.sum(torch.norm(W, dim=(0, 2)))
-    elif penalty == 'GSGL':
-        return lam * (torch.sum(torch.norm(W, dim=(0, 2)))
-                      + torch.sum(torch.norm(W, dim=0)))
-    elif penalty == 'H':
+    elif penalty == "GSGL":
+        return lam * (torch.sum(torch.norm(W, dim=(0, 2))) + torch.sum(torch.norm(W, dim=0)))
+    elif penalty == "H":
         # Lowest indices along third axis touch most lagged values.
-        return lam * sum([torch.sum(torch.norm(W[:, :, :(i+1)], dim=(0, 2)))
-                          for i in range(lag)])
+        return lam * sum([torch.sum(torch.norm(W[:, :, : (i + 1)], dim=(0, 2))) for i in range(lag)])
     else:
-        raise ValueError('unsupported penalty: %s' % penalty)
+        raise ValueError("unsupported penalty: %s" % penalty)
 
 
 def ridge_regularize(network, lam):
-    '''Apply ridge penalty at all subsequent layers.'''
-    return lam * sum([torch.sum(fc.weight ** 2) for fc in network.layers[1:]])
+    """Apply ridge penalty at all subsequent layers."""
+    return lam * sum([torch.sum(fc.weight**2) for fc in network.layers[1:]])
 
 
-def train_model_gista(cmlp, X, lam, lam_ridge, lr, penalty, max_iter,
-                      check_every=1000, r=0.8, lr_min=1e-12, sigma=0.5,
-                      monotone=False, m=10, switch_tol=1e-3, verbose=1):
-    '''Train cMLP model with GISTA.
+def train_model_gista(
+    cmlp,
+    X,
+    lam,
+    lam_ridge,
+    lr,
+    penalty,
+    max_iter,
+    check_every=1000,
+    r=0.8,
+    lr_min=1e-12,
+    sigma=0.5,
+    monotone=False,
+    m=10,
+    switch_tol=1e-3,
+    verbose=1,
+):
+    """Train cMLP model with GISTA.
 
     Args:
       clstm: clstm model.
@@ -228,11 +235,11 @@ def train_model_gista(cmlp, X, lam, lam_ridge, lr, penalty, max_iter,
       m: for line search.
       switch_tol: tolerance for switching to line search.
       verbose: level of verbosity (0, 1, 2).
-    '''
+    """
     p = cmlp.p
     lag = cmlp.lag
     cmlp_copy = deepcopy(cmlp)
-    loss_fn = nn.MSELoss(reduction='mean')
+    loss_fn = nn.MSELoss(reduction="mean")
 
     # Calculate full loss.
     mse_list = []
@@ -240,7 +247,7 @@ def train_model_gista(cmlp, X, lam, lam_ridge, lr, penalty, max_iter,
     loss_list = []
     for i in range(p):
         net = cmlp.networks[i]
-        mse = loss_fn(net(X[:, :-1]), X[:, lag:, i:i+1])
+        mse = loss_fn(net(X[:, :-1]), X[:, lag:, i : i + 1])
         ridge = ridge_regularize(net, lam_ridge)
         smooth = mse + ridge
         mse_list.append(mse)
@@ -293,32 +300,32 @@ def train_model_gista(cmlp, X, lam, lam_ridge, lr, penalty, max_iter,
 
             while not step:
                 # Perform tentative ISTA step.
-                for param, temp_param in zip(net.parameters(),
-                                             net_copy.parameters()):
+                for param, temp_param in zip(net.parameters(), net_copy.parameters()):
                     temp_param.data = param - lr_it * param.grad
 
                 # Proximal update.
                 prox_update(net_copy, lam, lr_it, penalty)
 
                 # Check line search criterion.
-                mse = loss_fn(net_copy(X[:, :-1]), X[:, lag:, i:i+1])
+                mse = loss_fn(net_copy(X[:, :-1]), X[:, lag:, i : i + 1])
                 ridge = ridge_regularize(net_copy, lam_ridge)
                 smooth = mse + ridge
                 with torch.no_grad():
                     nonsmooth = regularize(net_copy, lam, penalty)
                     loss = smooth + nonsmooth
                     tol = (0.5 * sigma / lr_it) * sum(
-                        [torch.sum((param - temp_param) ** 2)
-                         for param, temp_param in
-                         zip(net.parameters(), net_copy.parameters())])
+                        [
+                            torch.sum((param - temp_param) ** 2)
+                            for param, temp_param in zip(net.parameters(), net_copy.parameters())
+                        ]
+                    )
 
                 comp = loss_list[i] if monotone else max(last_losses[i])
                 if not line_search or (comp - loss) > tol:
                     step = True
                     if verbose > 1:
-                        print('Taking step, network i = %d, lr = %f'
-                              % (i, lr_it))
-                        print('Gap = %f, tol = %f' % (comp - loss, tol))
+                        print("Taking step, network i = %d, lr = %f" % (i, lr_it))
+                        print("Gap = %f, tol = %f" % (comp - loss, tol))
 
                     # For next iteration.
                     new_mse_list.append(mse)
@@ -338,7 +345,7 @@ def train_model_gista(cmlp, X, lam, lam_ridge, lr, penalty, max_iter,
                         new_smooth_list.append(smooth_list[i])
                         new_loss_list.append(loss_list[i])
                         if verbose > 0:
-                            print('Network %d converged' % (i + 1))
+                            print("Network %d converged" % (i + 1))
                         break
 
             # Clean up.
@@ -356,7 +363,7 @@ def train_model_gista(cmlp, X, lam, lam_ridge, lr, penalty, max_iter,
         # Check if all networks have converged.
         if sum(done) == p:
             if verbose > 0:
-                print('Done at iteration = %d' % (it + 1))
+                print("Done at iteration = %d" % (it + 1))
             break
 
         # Check progress.
@@ -371,27 +378,25 @@ def train_model_gista(cmlp, X, lam, lam_ridge, lr, penalty, max_iter,
             train_mse_list.append(mse_mean)
 
             if verbose > 0:
-                print(('-' * 10 + 'Iter = %d' + '-' * 10) % (it + 1))
-                print('Total loss = %f' % loss_mean)
-                print('MSE = %f, Ridge = %f, Nonsmooth = %f'
-                      % (mse_mean, ridge_mean, nonsmooth_mean))
-                print('Variable usage = %.2f%%'
-                      % (100 * torch.mean(cmlp.GC().float())))
+                print(("-" * 10 + "Iter = %d" + "-" * 10) % (it + 1))
+                print("Total loss = %f" % loss_mean)
+                print("MSE = %f, Ridge = %f, Nonsmooth = %f" % (mse_mean, ridge_mean, nonsmooth_mean))
+                print("Variable usage = %.2f%%" % (100 * torch.mean(cmlp.GC().float())))
 
             # Check whether loss has increased.
             if not line_search:
                 if train_loss_list[-2] - train_loss_list[-1] < switch_tol:
                     line_search = True
                     if verbose > 0:
-                        print('Switching to line search')
+                        print("Switching to line search")
 
     return train_loss_list, train_mse_list
 
 
 def train_model_adam(cmlp, X, lr, niter, check_every, verbose=0):
-    '''Train model with Adam.'''
+    """Train model with Adam."""
     lag = cmlp.lag
-    loss_fn = nn.MSELoss(reduction='mean')
+    loss_fn = nn.MSELoss(reduction="mean")
     optimizer = torch.optim.Adam(cmlp.parameters(), lr=lr)
     train_loss_list = []
 
@@ -408,10 +413,11 @@ def train_model_adam(cmlp, X, lr, niter, check_every, verbose=0):
             train_loss_list.append(loss.detach())
 
             if verbose > 0:
-                print(('-' * 10 + 'Iter = %d' + '-' * 10) % (it + 1))
-                print('Loss = %f' % loss)
+                print(("-" * 10 + "Iter = %d" + "-" * 10) % (it + 1))
+                print("Loss = %f" % loss)
 
     return train_loss_list
+
 
 # NOTE: Unused
 # def NGC_MLP(data):

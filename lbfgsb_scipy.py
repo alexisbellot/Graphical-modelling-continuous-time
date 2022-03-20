@@ -1,10 +1,10 @@
-import torch
 import scipy.optimize as sopt
+import torch
 
 
 class LBFGSBScipy(torch.optim.Optimizer):
     """Wrap L-BFGS-B algorithm, using scipy routines.
-    
+
     Courtesy: Arthur Mensch's gist
     https://gist.github.com/arthurmensch/c55ac413868550f89225a0b9212aa4cd
     """
@@ -14,10 +14,9 @@ class LBFGSBScipy(torch.optim.Optimizer):
         super(LBFGSBScipy, self).__init__(params, defaults)
 
         if len(self.param_groups) != 1:
-            raise ValueError("LBFGSBScipy doesn't support per-parameter options"
-                             " (parameter groups)")
+            raise ValueError("LBFGSBScipy doesn't support per-parameter options" " (parameter groups)")
 
-        self._params = self.param_groups[0]['params']
+        self._params = self.param_groups[0]["params"]
         self._numel = sum([p.numel() for p in self._params])
 
     def _gather_flat_grad(self):
@@ -35,7 +34,7 @@ class LBFGSBScipy(torch.optim.Optimizer):
     def _gather_flat_bounds(self):
         bounds = []
         for p in self._params:
-            if hasattr(p, 'bounds'):
+            if hasattr(p, "bounds"):
                 b = p.bounds
             else:
                 b = [(None, None)] * p.numel()
@@ -57,7 +56,7 @@ class LBFGSBScipy(torch.optim.Optimizer):
         for p in self._params:
             numel = p.numel()
             # view as to avoid deprecated pointwise semantics
-            p.data = params[offset:offset + numel].view_as(p.data)
+            p.data = params[offset : offset + numel].view_as(p.data)
             offset += numel
         assert offset == self._numel
 
@@ -78,7 +77,7 @@ class LBFGSBScipy(torch.optim.Optimizer):
             loss = closure()
             loss = loss.item()
             flat_grad = self._gather_flat_grad().cpu().detach().numpy()
-            return loss, flat_grad.astype('float64')
+            return loss, flat_grad.astype("float64")
 
         initial_params = self._gather_flat_params()
         initial_params = initial_params.cpu().detach().numpy()
@@ -86,12 +85,8 @@ class LBFGSBScipy(torch.optim.Optimizer):
         bounds = self._gather_flat_bounds()
 
         # Magic
-        sol = sopt.minimize(wrapped_closure,
-                            initial_params,
-                            method='L-BFGS-B',
-                            jac=True,
-                            bounds=bounds)
-        
+        sol = sopt.minimize(wrapped_closure, initial_params, method="L-BFGS-B", jac=True, bounds=bounds)
+
         # NOTE: Unused.
         # def proximal(weights, lam, eta=1e-2):
         #     """In place proximal update on first layer weight matrix"""
@@ -100,7 +95,7 @@ class LBFGSBScipy(torch.optim.Optimizer):
         #     alpha = torch.clamp(tmp, min=0)
         #     v = torch.nn.functional.normalize(fc1_weight, dim=1)*alpha[:,None]
         #     weights.data = v
-        
+
         final_params = torch.from_numpy(sol.x)
         final_params = final_params.to(torch.get_default_dtype())
         self._distribute_flat_params(final_params)
@@ -108,6 +103,7 @@ class LBFGSBScipy(torch.optim.Optimizer):
 
 def main():
     import torch.nn as nn
+
     # torch.set_default_dtype(torch.double)
 
     n, d, out, j = 10000, 3000, 10, 0
@@ -127,14 +123,14 @@ def main():
         optimizer.zero_grad()
         output = linear(input)
         loss = criterion(output, target)
-        print('loss:', loss.item())
+        print("loss:", loss.item())
         loss.backward()
         return loss
+
     optimizer.step(closure)
     print(list(linear.parameters()))
     print(w_true.t())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
