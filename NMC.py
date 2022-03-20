@@ -95,7 +95,7 @@ class MLPODEF(nn.Module):
         fc1_weight = self.fc1.weight  # [j * m1, i]
         fc1_weight = fc1_weight.view(d, -1, d)  # [j, m1, i]
         W = torch.sum(fc1_weight**2, dim=1).pow(0.5)  # [i, j]
-        W = W.cpu().detach().numpy()  # [i, j]
+        W = W.cpu().detach().cpu().numpy()  # [i, j]
         W[np.abs(W) < w_threshold] = 0
         return np.round(W, 2)
 
@@ -105,7 +105,7 @@ class MLPODEF(nn.Module):
             fc.reset_parameters()
 
 
-def train(func, data, n_steps, times=None, plot_freq=10, horizon=5, l1_reg=0, l2_reg=0, plot=True, irregular=False):
+def train(func, data, n_steps, times=None, plot_freq=10, horizon=5, l1_reg=0, l2_reg=0, plot=True, irregular=False, device="cpu"):
     """Train Neural ODE
 
     func: nn.Module class
@@ -114,16 +114,21 @@ def train(func, data, n_steps, times=None, plot_freq=10, horizon=5, l1_reg=0, l2
     plot_freq (int): result plotting frequency
     horizon (int): prediction horizon
     l1_reg (float): L1 regularization strength
-    l2_reg (float): L1 regularization strength"""
+    l2_reg (float): L1 regularization strength
+    device (string or torch.device): a string to specify a torch device to use ("cpu", "cuda", "cuda:1" etc.)
+        or a torch.device. Default: "cpu"
+    """
 
     batch_time = horizon
     data_size = data.shape[0]
-    device = torch.device("cpu")
+    if isinstance(device, str):
+        device = torch.device(device)
+    data = data.to(device)
 
     if not irregular:
         times = np.linspace(0, data.shape[0], data.shape[0])
         times_np = np.hstack([times[:, None]])
-        times = torch.from_numpy(times_np[:, :, None])
+        times = torch.from_numpy(times_np[:, :, None]).to(device)
 
     def create_batch(batch_size):
         s = torch.from_numpy(
@@ -184,12 +189,12 @@ def train(func, data, n_steps, times=None, plot_freq=10, horizon=5, l1_reg=0, l2
 
         if plot and i % plot_freq == 0:
             z_p = odeint(func, data[0], times[:100].squeeze())
-            z_p, loss_np = z_p.detach().numpy(), loss.detach().numpy()
+            z_p, loss_np = z_p.detach().cpu().numpy(), loss.detach().cpu().numpy()
             graph = func.causal_graph(w_threshold=0.0)
 
             fig, axs = plt.subplots(1, 3, figsize=(10, 2.3))
             fig.tight_layout(pad=0.2, w_pad=2, h_pad=3)
-            axs[0].plot(times[:100].squeeze(), data[:100].squeeze())
+            axs[0].plot(times[:100].squeeze().cpu().numpy(), data[:100].squeeze().cpu().numpy())
             axs[1].plot(z_p.squeeze())
             axs[1].set_title("Iteration = %i" % i + ",  " + "Loss = %1.3f" % loss_np)
             cax = axs[2].matshow(graph)
