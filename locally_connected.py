@@ -46,9 +46,9 @@ class LocallyConnected(nn.Module):
         if self.bias is not None:
             nn.init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, input: torch.Tensor):
+    def forward(self, input_: torch.Tensor):
         # [n, d, 1, m2] = [n, d, 1, m1] @ [1, d, m1, m2]
-        out = torch.matmul(input.unsqueeze(dim=2), self.weight.unsqueeze(dim=0))
+        out = torch.matmul(input_.unsqueeze(dim=2), self.weight.unsqueeze(dim=0))
         out = out.squeeze(dim=2)
         if self.bias is not None:
             # [n, d, m2] += [d, m2]

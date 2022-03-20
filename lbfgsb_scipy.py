@@ -107,10 +107,10 @@ def main():
     # torch.set_default_dtype(torch.double)
 
     n, d, out, j = 10000, 3000, 10, 0
-    input = torch.randn(n, d)
+    input_ = torch.randn(n, d)
     w_true = torch.rand(d, out)
     w_true[j, :] = 0
-    target = torch.matmul(input, w_true)
+    target = torch.matmul(input_, w_true)
     linear = nn.Linear(d, out)
     linear.weight.bounds = [(0, None)] * d * out  # hack
     for m in range(out):
@@ -121,7 +121,7 @@ def main():
 
     def closure():
         optimizer.zero_grad()
-        output = linear(input)
+        output = linear(input_)
         loss = criterion(output, target)
         print("loss:", loss.item())
         loss.backward()
