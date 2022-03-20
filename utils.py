@@ -14,7 +14,7 @@ from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
 
-def plot_trajectories(data, pred, graph, title=[1, 2.1]):
+def plot_trajectories(data, pred, graph, title=(1, 2.1)):
     fig, axs = plt.subplots(1, 3, figsize=(10, 2.3))
     fig.tight_layout(pad=0.2, w_pad=2, h_pad=3)
     axs[0].plot(data.squeeze())
