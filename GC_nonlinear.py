@@ -141,7 +141,7 @@ def compute_derivatives(y, k=4, s=4, t=None):
     Returns:
         dy/dt (np.ndarray): derivative of y(t) evaluated at t
     """
-    if type(t) == type(None):
+    if t is None:
         t = np.arange(y.shape[0])
 
     temp_list = []
