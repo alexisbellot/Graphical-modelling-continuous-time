@@ -413,13 +413,14 @@ def train_model_adam(cmlp, X, lr, niter, check_every, verbose=0):
 
     return train_loss_list
 
-def NGC_MLP(data):
-    X = torch.tensor(data[np.newaxis])
-    p = data.shape[1]
-    lag = 5
-    hidden = [5]
-    cmlp = cMLP(p, lag, hidden)
-    check_every=100
-    train_loss_list, train_mse_list = train_model_gista(
-    cmlp, X, lam=0.012, lam_ridge=1e-4, lr=0.02, penalty='H', max_iter=50000, check_every=check_every)
-    return clstm.GC().cpu().data.numpy()
+# NOTE: Unused
+# def NGC_MLP(data):
+#     X = torch.tensor(data[np.newaxis])
+#     p = data.shape[1]
+#     lag = 5
+#     hidden = [5]
+#     cmlp = cMLP(p, lag, hidden)
+#     check_every=100
+#     train_loss_list, train_mse_list = train_model_gista(
+#     cmlp, X, lam=0.012, lam_ridge=1e-4, lr=0.02, penalty='H', max_iter=50000, check_every=check_every)
+#     return clstm.GC().cpu().data.numpy()

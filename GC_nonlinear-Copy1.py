@@ -83,14 +83,14 @@ class NotearsMLP(nn.Module):
         W = W.cpu().detach().numpy()  # [i, j]
         return W
     
-    
-    def proximal(self, lam, eta=1e-2):
-        """In place proximal update on first layer weight matrix"""
-        fc1_weight = self.fc1.weight
-        tmp = torch.norm(fc1.weight, dim=1) - lam*eta
-        alpha = torch.clamp(tmp, min=0)
-        v = torch.nn.functional.normalize(fc1_weight, dim=1)*alpha[:,None]
-        self.fc1.weight.data = v
+    # NOTE: Unused.    
+    # def proximal(self, lam, eta=1e-2):
+    #     """In place proximal update on first layer weight matrix"""
+    #     fc1_weight = self.fc1.weight
+    #     tmp = torch.norm(fc1.weight, dim=1) - lam*eta
+    #     alpha = torch.clamp(tmp, min=0)
+    #     v = torch.nn.functional.normalize(fc1_weight, dim=1)*alpha[:,None]
+    #     self.fc1.weight.data = v
 
 
 

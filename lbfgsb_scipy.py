@@ -92,13 +92,14 @@ class LBFGSBScipy(torch.optim.Optimizer):
                             jac=True,
                             bounds=bounds)
         
-        def proximal(weights, lam, eta=1e-2):
-            """In place proximal update on first layer weight matrix"""
-            fc1_weight = self.fc1.weight
-            tmp = torch.norm(weights, dim=1) - lam*eta
-            alpha = torch.clamp(tmp, min=0)
-            v = torch.nn.functional.normalize(fc1_weight, dim=1)*alpha[:,None]
-            weights.data = v
+        # NOTE: Unused.
+        # def proximal(weights, lam, eta=1e-2):
+        #     """In place proximal update on first layer weight matrix"""
+        #     fc1_weight = self.fc1.weight
+        #     tmp = torch.norm(weights, dim=1) - lam*eta
+        #     alpha = torch.clamp(tmp, min=0)
+        #     v = torch.nn.functional.normalize(fc1_weight, dim=1)*alpha[:,None]
+        #     weights.data = v
         
         final_params = torch.from_numpy(sol.x)
         final_params = final_params.to(torch.get_default_dtype())

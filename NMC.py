@@ -199,6 +199,10 @@ def train(func, data, n_steps, times = None, plot_freq=10, horizon=5, l1_reg=0, 
             #utils.plot_trajectories(data[:100], z_p, graph, title=[i,loss_np])
             clear_output(wait=True)
 
+def squared_loss(output, target):
+    n = target.shape[0]
+    loss = 0.5 / n * torch.sum((output - target) ** 2)
+    return loss
             
 def optimize(model, X, Y, lambda1, lambda2):
     optimizer = LBFGSBScipy(model.parameters())

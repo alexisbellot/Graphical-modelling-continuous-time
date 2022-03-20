@@ -455,7 +455,7 @@ def performance(methods, model='rossler', num_exp=100, T = 100, p = 10, F=50):
             data, GC = simulate_rossler(p=p, a=0, T=T, delta_t=0.05, sd=0.00, burn_in=0)
             lambda1=0.0001
         if model == 'lorenz':
-            data, GC = simulate_lorenz(p=p, T=T, F=F)
+            data, GC = simulate_lorenz_96(p=p, T=T, F=F)
             lambda1=0.006
         if model == 'glycolytic':
             data, GC = simulate_glycolytic(T=T)
