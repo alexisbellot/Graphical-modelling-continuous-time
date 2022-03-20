@@ -136,7 +136,7 @@ def compute_derivatives(y, k=4, s=4, t=None):
     univariate splines.
 
     Args:
-        t, y (np.ndarray): time indeces t of time series y
+        t, y (np.ndarray): time indices t of time series y
 
     Returns:
         dy/dt (np.ndarray): derivative of y(t) evaluated at t
