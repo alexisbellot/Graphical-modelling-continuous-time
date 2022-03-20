@@ -1,4 +1,5 @@
 ipython==8.1.1
+lingam~=1.5.5
 matplotlib==3.4.3
 networkx==2.6.3
 numpy==1.21.2
