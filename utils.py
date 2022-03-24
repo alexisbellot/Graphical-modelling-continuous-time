@@ -49,7 +49,7 @@ def compute_derivatives(y, k=4, s=4, t=None):
     return np.transpose(np.array(temp_list))  # shape is number of time points x number of variables
 
 
-def compute_spline(y, k=3, s=0.1):
+def compute_spline(y, t=None, k=3, s=0.1):
     """Compute univariate stochastic process by interpolating trajectory with
     univariate splines.
 
@@ -59,7 +59,8 @@ def compute_spline(y, k=3, s=0.1):
     Returns:
         dy/dt (np.ndarray): derivative of y(t) evaluated at t
     """
-    t = np.arange(y.shape[0])
+    if t is None:
+        t = np.arange(y.shape[0])
 
     temp_list = []
     for i in range(y.shape[1]):
