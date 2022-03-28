@@ -1,6 +1,7 @@
+import math
+
 import torch
 import torch.nn as nn
-import math
 
 
 class LocallyConnected(nn.Module):
@@ -27,15 +28,13 @@ class LocallyConnected(nn.Module):
         self.input_features = input_features
         self.output_features = output_features
 
-        self.weight = nn.Parameter(torch.Tensor(num_linear,
-                                                input_features,
-                                                output_features))
+        self.weight = nn.Parameter(torch.Tensor(num_linear, input_features, output_features))
         if bias:
             self.bias = nn.Parameter(torch.Tensor(num_linear, output_features))
         else:
             # You should always register all possible parameters, but the
             # optional ones can be None if you want.
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
 
         self.reset_parameters()
 
@@ -47,9 +46,9 @@ class LocallyConnected(nn.Module):
         if self.bias is not None:
             nn.init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, input: torch.Tensor):
+    def forward(self, input_: torch.Tensor):
         # [n, d, 1, m2] = [n, d, 1, m1] @ [1, d, m1, m2]
-        out = torch.matmul(input.unsqueeze(dim=2), self.weight.unsqueeze(dim=0))
+        out = torch.matmul(input_.unsqueeze(dim=2), self.weight.unsqueeze(dim=0))
         out = out.squeeze(dim=2)
         if self.bias is not None:
             # [n, d, m2] += [d, m2]
@@ -59,9 +58,8 @@ class LocallyConnected(nn.Module):
     def extra_repr(self):
         # (Optional)Set the extra information about this module. You can test
         # it by printing an object of this class.
-        return 'num_linear={}, in_features={}, out_features={}, bias={}'.format(
-            self.num_linear, self.in_features, self.out_features,
-            self.bias is not None
+        return "num_linear={}, in_features={}, out_features={}, bias={}".format(
+            self.num_linear, self.in_features, self.out_features, self.bias is not None
         )
 
 
@@ -70,6 +68,7 @@ def main():
 
     # numpy
     import numpy as np
+
     input_numpy = np.random.randn(n, d, m1)
     weight = np.random.randn(d, m1, m2)
     output_numpy = np.zeros([n, d, m2])
@@ -88,5 +87,5 @@ def main():
     print(torch.allclose(output_torch, torch.from_numpy(output_numpy)))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
